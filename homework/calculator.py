@@ -1,85 +1,119 @@
-"""
-For your homework this week, you'll be creating a wsgi application of
-your own.
+'''______________________________________________________
+Mike Newton
+newton33@uw.edu
+Web Programming With Python 100
+University of Washington, Spring 2016
+Last Updated:  20 April 2016
+Python Version 3.5.1
+______________________________________________________'''
 
-You'll create an online calculator that can perform several operations.
-
-You'll need to support:
-
-  * Addition
-  * Subtractions
-  * Multiplication
-  * Division
-
-Your users should be able to send appropriate requests and get back
-proper responses. For example, if I open a browser to your wsgi
-application at `http://localhost:8080/multiple/3/5' then the response
-body in my browser should be `15`.
-
-Consider the following URL/Response body pairs as tests:
-
-```
-  http://localhost:8080/multiply/3/5   => 15
-  http://localhost:8080/add/23/42      => 65
-  http://localhost:8080/subtract/23/42 => -19
-  http://localhost:8080/divide/22/11   => 2
-  http://localhost:8080/divide/6/0     => HTTP "400 Bad Request"
-  http://localhost:8080/               => <html>Here's how to use this page...</html>
-```
-
-To submit your homework:
-
-  * Fork this repository (Session03).
-  * Edit this file to meet the homework requirements.
-  * Your script should be runnable using `$ python calculator.py`
-  * When the script is running, I should be able to view your
-    application in my browser.
-  * I should also be able to see a home page (http://localhost:8080/)
-    that explains how to perform calculations.
-  * Commit and push your changes to your fork.
-  * Submit a link to your Session03 fork repository!
-
-
-"""
+import operator as oper
+import functools as ft
 
 
 def add(*args):
+    
     """ Returns a STRING with the sum of the arguments """
+    #convert args to floats so we can do the maths
+    values = list(args)
+    for x in range(len(values)):
+        values[x] = float(values[x])
+       
+    summation = str(ft.reduce(oper.add,values))
+    return summation
 
-    # TODO: Fill sum with the correct value, based on the
-    # args provided.
-    sum = "0"
+def multiply(*args):
+    """ Returns a STRING with the product of the arguments """
+    #convert args to floats so we can do the maths
+    values = list(args)
+    for x in range(len(values)):
+        values[x] = float(values[x])
+    product = str(ft.reduce(oper.mul,values))
 
-    return sum
+    return product
 
-# TODO: Add functions for handling more arithmetic operations.
+def divide(*args):
+    """ Returns a STRING with the quotient of the arguments """
+    #convert args to floats so we can do the maths
+    values = list(args)
+    for x in range(len(values)):
+        values[x] = float(values[x])
+
+    try:
+        quotient = str(ft.reduce(oper.truediv,values))
+    except ZeroDivisionError:
+        quotient = "You can't divide by zero!  Everyone knows that!"
+
+    return quotient
+
+def subtract(*args):
+    """ Returns a STRING with the difference of the arguments """
+    #convert args to floats so we can do the maths
+    values = list(args)
+    for x in range(len(values)):
+        values[x] = float(values[x])
+        
+    difference = str(ft.reduce(oper.sub,values))
+
+    return difference
+
+def home(*args):
+    """ Returns a STRING with the instructions for using calculator """
+    home_page = """To use this calculator, simply type the desired mathematic operation<br>
+                after the http://localhost:8080/ in your browser's address bar.<br>
+                Your choices are:<br>
+                    add/<br>
+                    subtract/<br>
+                    multiply/<br>
+                    divide/<br>
+                Follow your mathematic operation in the address with as many operands as you want.<br>
+                <br>
+                Example:  http://localhost:8080/add/5/3/2/6/10 will return a value of 26 to your browser.<br>"""
+
+    return home_page
+
 
 def resolve_path(path):
     """
     Should return two values: a callable and an iterable of
     arguments.
     """
-
-    # TODO: Provide correct values for func and args. The
-    # examples provide the correct *syntax*, but you should
-    # determine the actual values of func and args using the
-    # path.
-    func = add
-    args = ['25', '32']
+    args = path.strip("/").split("/")
+    func_name = args.pop(0)
+    if not func_name:
+        func = home
+    else:
+        func = {
+            "add": add,
+            "subtract": subtract,
+            "divide": divide,
+            "multiply": multiply
+        }.get(func_name.lower())
 
     return func, args
 
 def application(environ, start_response):
-    # TODO: Your application code from the book database
-    # work here as well! Remember that your application must
-    # invoke start_response(status, headers) and also return
-    # the body of the response in BYTE encoding.
-    #
-    # TODO (bonus): Add error handling for a user attempting
-    # to divide by zero.
-    pass
+
+    headers = [("Content-type", "text/html")]
+    try:
+        path = environ.get('PATH_INFO', None)
+        if path is None:
+            raise NameError
+        func, args = resolve_path(path)
+        body = func(*args)
+        status = "200 OK"
+    except NameError:
+        status = "404 Not Found"
+        body = "<h1>Not Found</h1>"
+    except Exception:
+        status = "500 Internal Server Error"
+        body = "<h1>Internal Server Error</h1>"
+    finally:
+        headers.append(('Content-length', str(len(body))))
+        start_response(status, headers)
+        return [body.encode('utf8')]
 
 if __name__ == '__main__':
-    # TODO: Insert the same boilerplate wsgiref simple
-    # server creation that you used in the book database.
-    pass
+    from wsgiref.simple_server import make_server
+    srv = make_server('localhost', 8080, application)
+    srv.serve_forever()
